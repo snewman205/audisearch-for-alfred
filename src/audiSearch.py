@@ -1,6 +1,6 @@
  # encoding: utf-8
 
-import sys, json, ast, shutil, os
+import sys, json, ast, shutil, os, re
 from workflow import Workflow3, ICON_ERROR, ICON_INFO, web
 from workflow.notify import notify
 from lxml import html
@@ -36,17 +36,23 @@ def parseCoverArt(imageContainer):
 def parseMetadata(metadataContainer):
 	metadata = {}
 
-	# Parse product title
+	# Parse product title and ASIN
 	prodTitle = metadataContainer[0].xpath("div[@class='adbl-prod-title']/a")
 	if len(prodTitle):
 		metadata["title"] = prodTitle[0].text_content()
+
+		titleLinkURL = prodTitle[0].get("href")
+		asinRegexMatch = re.search("B\d{2}\w{7}|\d{9}(X|\d)$", titleLinkURL)
+		
+		if asinRegexMatch is not None:
+			metadata["asin"] = asinRegexMatch.group(0)
 
 	# Parse product edition if it exists
 	prodVersion = metadataContainer[0].xpath("div[@class='adbl-prod-version']")
 	if len(prodVersion):
 		metadata["version"] = prodVersion[0].text_content().replace("\n", "")
 
-	# Parse product author(s) and ASIN
+	# Parse product author(s) and ASIN (if not previously processed)
 	prodAuthors = metadataContainer[0].xpath("div[@class='adbl-prod-meta']/ul/li/span[@class='adbl-prod-author']")
 	if len(prodAuthors):
 		authors = []
@@ -58,10 +64,11 @@ def parseMetadata(metadataContainer):
 
 			metadata["authors"] = ", ".join(authors)
 
-		asinEls = prodAuthors[0].findall("input[@name='productAsin']")
+		if "asin" not in metadata:
+			asinEls = prodAuthors[0].findall("input[@name='productAsin']")
 
-		if len(asinEls):
-			metadata["asin"] = asinEls[0].get("value")
+			if len(asinEls):
+				metadata["asin"] = asinEls[0].get("value")
 
 	# Parse product narrator(s)
 	prodNarrators = metadataContainer[0].xpath("div[@class='adbl-prod-meta']/ul/li/span[@class='adbl-label-an' and contains(text(), 'Narrated By')]/following-sibling::span[@class='adbl-prod-author']")
@@ -123,19 +130,23 @@ def parseSearchResults(results):
 			else:
 				narratorStr = None
 
-			defaultSubtitleStr = ""
+			defaultSubtitleComponents = []
 			if "version" in product["metadata"]:
-				defaultSubtitleStr += product["metadata"]["version"] + " | "
+				defaultSubtitleComponents.append(product["metadata"]["version"])
 			if (authorStr is not None and len(authorStr)):
-				defaultSubtitleStr += authorStr + " | "
-			defaultSubtitleStr += product["metadata"]["length"]
+				defaultSubtitleComponents.append(authorStr)
+			if "length" in product["metadata"]:
+				defaultSubtitleComponents.append(product["metadata"]["length"])
+			defaultSubtitleStr = " | ".join(defaultSubtitleComponents)
 
-			altSubtitleStr = ""
+			altSubtitleComponents = []
 			if "version" in product["metadata"]:
-				altSubtitleStr = product["metadata"]["version"] + " | "
+				altSubtitleComponents.append(product["metadata"]["version"])
 			if (narratorStr is not None and len(narratorStr)):
-				altSubtitleStr += narratorStr + " | "
-			altSubtitleStr += product["metadata"]["length"]
+				altSubtitleComponents.append(narratorStr)
+			if "length" in product["metadata"]:
+				altSubtitleComponents.append(product["metadata"]["length"])
+			altSubtitleStr = " | ".join(altSubtitleComponents)
 
 			# Display result
 			if "asin" not in product["metadata"]:
