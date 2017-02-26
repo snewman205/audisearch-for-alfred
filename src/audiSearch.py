@@ -1,9 +1,8 @@
  # encoding: utf-8
 
-import sys, json, ast, shutil, os, re
+import sys, json, ast, shutil, os
 from workflow import Workflow3, ICON_ERROR, ICON_INFO, web
 from workflow.notify import notify
-from lxml import html
 
 def addErrorItem(title, subtitle=""):
 	wf.add_item(
@@ -13,155 +12,109 @@ def addErrorItem(title, subtitle=""):
 		icon=ICON_ERROR
 	)
 
-# Parses and caches product cover art given the image container.
-# Returns the fully qualified path to the cached image.
-def parseCoverArt(imageContainer):
-	# Parse product image URL
-	prodImage = imageContainer[0].xpath("a/img[@class='adbl-prod-image']")
-	if len(prodImage):
-		prodImageURL = prodImage[0].get("src")
-		if prodImageURL is not None:
-			# Save image to local cache
-			imgName = os.path.basename(prodImageURL)
-			basePath = prodImageURL.replace(imgName, "")
+def cacheCoverArt(imageUrl):
+	imgName = os.path.basename(imageUrl)
+	basePath = imageUrl.replace(imgName, "")
 			
-			img = open(coverArtDir + imgName, "wb")
-			img.write(web.get(basePath + imgName).content)
-			img.close()
+	img = open(coverArtDir + imgName, "wb")
+	img.write(web.get(basePath + imgName).content)
+	img.close()
 
-			return coverArtDir + imgName
-
-# Parses product metadata given the metadata container.
-# Returns a dictionary representing the product's metadata.
-def parseMetadata(metadataContainer):
-	metadata = {}
-
-	# Parse product title and ASIN
-	prodTitle = metadataContainer[0].xpath("div[@class='adbl-prod-title']/a")
-	if len(prodTitle):
-		metadata["title"] = prodTitle[0].text_content()
-
-		titleLinkURL = prodTitle[0].get("href")
-		asinRegexMatch = re.search("B\d{2}\w{7}|\d{9}(X|\d)$", titleLinkURL)
-		
-		if asinRegexMatch is not None:
-			metadata["asin"] = asinRegexMatch.group(0)
-
-	# Parse product edition if it exists
-	prodVersion = metadataContainer[0].xpath("div[@class='adbl-prod-version']")
-	if len(prodVersion):
-		metadata["version"] = prodVersion[0].text_content().replace("\n", "")
-
-	# Parse product author(s) and ASIN (if not previously processed)
-	prodAuthors = metadataContainer[0].xpath("div[@class='adbl-prod-meta']/ul/li/span[@class='adbl-prod-author']")
-	if len(prodAuthors):
-		authors = []
-		authorEls = prodAuthors[0].findall("input[@name='authorName']")
-		
-		if len(authorEls):
-			for authorEl in authorEls:
-				authors.append(authorEl.get("value"))
-
-			metadata["authors"] = ", ".join(authors)
-
-		if "asin" not in metadata:
-			asinEls = prodAuthors[0].findall("input[@name='productAsin']")
-
-			if len(asinEls):
-				metadata["asin"] = asinEls[0].get("value")
-
-	# Parse product narrator(s)
-	prodNarrators = metadataContainer[0].xpath("div[@class='adbl-prod-meta']/ul/li/span[@class='adbl-label-an' and contains(text(), 'Narrated By')]/following-sibling::span[@class='adbl-prod-author']")
-	if len(prodNarrators):
-		narrators = []
-		narratorEls = prodNarrators[0].findall("a")
-
-		if len(narratorEls):
-			for narratorEl in narratorEls:
-				narrators.append(narratorEl.text_content())
-
-			metadata["narrators"] = ", ".join(narrators) 
-
-	# Parse product length
-	prodLength = metadataContainer[0].xpath("div[@class='adbl-prod-meta']/ul/li/span[@class='adbl-label' and contains(text(), 'Length')]/following-sibling::span[@class='adbl-label']")
-	if len(prodLength):
-		metadata["length"] = prodLength[0].text_content()
-
-	return metadata
+	return coverArtDir + imgName
 
 def parseSearchResults(results):
-	resultItems = results.xpath("//ul[@class='adbl-search-results']/li/div[@class='adbl-prod-result adbl-search-result']")
-
-	if len(resultItems):
+	if "products" in results:
 		# Clear out any previously stored cover art
 		shutil.rmtree(coverArtDir, True)
 		os.mkdir(coverArtDir)
 
 		# Parse each result
-		for result in resultItems:
+		for result in results["products"]:
 			product = {}
 
-			# Parse image container
-			imageContainer = result.xpath("div[contains(@class, 'adbl-prod-image-sample-cont')]")
-			if len(imageContainer):
-				coverArt = parseCoverArt(imageContainer)
-				product["icon"] = coverArt
+			# Parse asin
+			if ("asin" in result and len(result["asin"])):
+				product["asin"] = result["asin"]
 			else:
-				wf.logger.error("Failed to process product image.")
-				coverArt = None
+				wf.logger.error("Failed to process asin.")
 
-			# Parse metadata
-			metadataContainer = result.xpath("div[@class='adbl-prod-meta-data-cont']")
-			if len(metadataContainer):
-				metadata = parseMetadata(metadataContainer)
-				product["metadata"] = metadata
+			# Parse title
+			if ("title" in result and len(result["title"])):
+				titleComponents = [result["title"]]
+				if ("subtitle" in result and len(result["subtitle"])):
+					titleComponents.append(result["subtitle"])
+				product["title"] = ": ".join(titleComponents)
+
+			# Cache cover art
+			coverArtUrl = result["product_images"]["256"]
+			if (coverArtUrl is not None and len(coverArtUrl)):
+				product["icon"] = cacheCoverArt(coverArtUrl)
 			else:
-				wf.logger.error("Failed to process product metadata.")
-				metadata = None
+				wf.logger.error("Failed to process cover art.")
+
+			# Parse authors
+			authors = []
+			if ("authors" in result and len(result["authors"])):
+				for author in result["authors"]:
+					authors.append(author["name"])
+				product["authors"] = "By: " + ", ".join(authors)
+			else:
+				wf.logger.error("Failed to process authors.")
+
+			# Parse narrators
+			narrators = []
+			if ("narrators" in result and len(result["narrators"])):
+				for narrator in result["narrators"]:
+					narrators.append(narrator["name"])
+				product["narrators"] = "Narrated By: " + ", ".join(narrators)
+			else:
+				wf.logger.error("Failed to process narrators.")
+
+			# Parse version
+			if ("format_type" in result and len(result["format_type"])):
+				product["version"] = result["format_type"]
+			else:
+				wf.logger.error("Failed to process product type.")
+
+			# Parse length
+			if "runtime_length_min" in result:
+				product["length"] = result["runtime_length_min"]
+			else:
+				wf.logger.error("Failed to process running time.")
 
 			# Build subtitles for result items
-			if "authors" in product["metadata"]:
-				authorStr = "By: " + product["metadata"]["authors"]
-			else:
-				authorStr = None
-
-			if "narrators" in product["metadata"]:
-				narratorStr = "Narrated By: " + product["metadata"]["narrators"]
-			else:
-				narratorStr = None
-
 			defaultSubtitleComponents = []
-			if "version" in product["metadata"]:
-				defaultSubtitleComponents.append(product["metadata"]["version"])
-			if (authorStr is not None and len(authorStr)):
-				defaultSubtitleComponents.append(authorStr)
-			if "length" in product["metadata"]:
-				defaultSubtitleComponents.append(product["metadata"]["length"])
+			if "version" in product:
+				defaultSubtitleComponents.append(product["version"])
+			if "authors" in product:
+				defaultSubtitleComponents.append(product["authors"])
+			if "length" in product:
+				defaultSubtitleComponents.append(str(product["length"]))
 			defaultSubtitleStr = " | ".join(defaultSubtitleComponents)
 
 			altSubtitleComponents = []
-			if "version" in product["metadata"]:
-				altSubtitleComponents.append(product["metadata"]["version"])
-			if (narratorStr is not None and len(narratorStr)):
-				altSubtitleComponents.append(narratorStr)
-			if "length" in product["metadata"]:
-				altSubtitleComponents.append(product["metadata"]["length"])
+			if "version" in product:
+				altSubtitleComponents.append(product["version"])
+			if "narrators" in product:
+				altSubtitleComponents.append(product["narrators"])
+			if "length" in product:
+				altSubtitleComponents.append(str(product["length"]))
 			altSubtitleStr = " | ".join(altSubtitleComponents)
 
 			# Display result
-			if "asin" not in product["metadata"]:
-				asin = None
+			if "asin" in product:
+				asin = product["asin"]
 			else:
-				asin = product["metadata"]["asin"]
+				asin = ""
 
 			result = wf.add_item(
-				title=product["metadata"]["title"],
+				title=product["title"],
 				subtitle=defaultSubtitleStr,
-				arg="asin:" + (asin if asin is not None else ""),
+				arg="asin:" + asin,
 				valid=True,
 				icon=product["icon"],
-				copytext=asin if asin is not None else "",
-				quicklookurl="https://www.audible.com/pd/" + (asin if asin is not None else "") 
+				copytext=asin,
+				quicklookurl="https://www.audible.com/pd/" + asin 
 			)
 			result.add_modifier(key="alt", subtitle=altSubtitleStr)
 	else:
@@ -170,13 +123,16 @@ def parseSearchResults(results):
 
 def loadSearchResults(query):
 	requestParams = {
-		"advsearchKeywords": query,
-		"searchSize": 10,
-		"filterby": "field-keywords"
+		"keywords": query,
+		"num_results": 10,
+		"language": "en",
+		"products_sort_by": "Relevance",
+		"image_sizes": "256",
+		"response_groups": "media,product_desc,contributors,product_attrs"
 	}
 
 	try:
-		results = web.get("https://www.audible.com/search", requestParams)
+		results = web.get("https://api.audible.com/1.0/catalog/products", requestParams)
 	except:
 		addErrorItem("Failed to retrieve search results.", "Please try again later.")
 		return None
@@ -184,10 +140,12 @@ def loadSearchResults(query):
 		if results.status_code is not 200:
 			addErrorItem("Failed to retrieve search results.", "Please try again later.")
 			return None
-		elif len(results.content):
-			return html.fromstring(results.content)
 		else:
-			return None
+			try:
+				return results.json()
+			except:
+				addErrorItem("Failed to parse search results.", "If this error continues please reach out.")
+				return None
 
 def loadSuggestions(query):
 	requestParams = {
@@ -218,6 +176,15 @@ def loadSuggestions(query):
 		else:
 			return None 
 
+def parseSuggestions(suggestions):
+	for suggestion in suggestions[1]:
+		wf.add_item(
+			title=suggestion,
+			arg=suggestion,
+			valid=True,
+			icon="blank.png"
+		)
+
 def main(wf):
 	if len(wf.args):
 		query = wf.args[0]
@@ -241,13 +208,7 @@ def main(wf):
 			)
 
 			if (suggestions is not None and len(suggestions[1])):
-				for suggestion in suggestions[1]:
-					wf.add_item(
-						title=suggestion,
-						arg=suggestion,
-						valid=True,
-						icon="blank.png"
-					)
+				parseSuggestions(suggestions)
 
 	wf.send_feedback()
 
