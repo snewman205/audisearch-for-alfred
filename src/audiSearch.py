@@ -1,13 +1,16 @@
  # encoding: utf-8
 
 import sys, json, ast, shutil, os
-from workflow import Workflow3, ICON_ERROR, ICON_INFO, web
+from workflow import Workflow3, ICON_ERROR, ICON_INFO, ICON_SYNC, web
 
 intervals = (
 	('hrs', 3600),
 	('mins', 60),
 	('secs', 1)
 )
+numResultsPerPage = 10
+coverArtSize = 64
+defaultCoverArtUrl = "http://g-ecx.images-amazon.com/images/G/01/Audible/en_US/images/generic/no_image_s_150_image.jpg"
 
 def addErrorItem(title, subtitle=""):
 	wf.add_item(
@@ -40,18 +43,24 @@ def displayTime(seconds, granularity=2):
 def cacheCoverArt(imageUrl):
 	imgName = os.path.basename(imageUrl)
 	basePath = imageUrl.replace(imgName, "")
-			
-	img = open(coverArtDir + imgName, "wb")
-	img.write(web.get(basePath + imgName).content)
-	img.close()
+	pathToImg = coverArtDir + imgName
+	
+	if os.path.isfile(pathToImg) == False:
+		img = open(pathToImg, "wb")
+		img.write(web.get(imageUrl, stream=True).content)
+		img.close()
 
-	return coverArtDir + imgName
+	return pathToImg
 
 def parseSearchResults(results):
 	if "products" in results:
 		# Clear out any previously stored cover art
 		shutil.rmtree(coverArtDir, True)
 		os.mkdir(coverArtDir)
+
+		# Parse total result count
+		if "total_results" in results:
+			totalResultCount = results["total_results"]
 
 		# Parse each result
 		for result in results["products"]:
@@ -71,11 +80,14 @@ def parseSearchResults(results):
 				product["title"] = ": ".join(titleComponents)
 
 			# Cache cover art
-			coverArtUrl = result["product_images"]["256"]
-			if (coverArtUrl is not None and len(coverArtUrl)):
-				product["icon"] = cacheCoverArt(coverArtUrl)
+			if "product_images" in result:
+				coverArtUrl = result["product_images"][str(coverArtSize)]
+				if (coverArtUrl is not None and len(coverArtUrl)):
+					product["icon"] = cacheCoverArt(coverArtUrl)
+				else:
+					product["icon"] = cacheCoverArt(defaultCoverArtUrl)
 			else:
-				wf.logger.error("Failed to process cover art.")
+				product["icon"] = cacheCoverArt(defaultCoverArtUrl)
 
 			# Parse authors
 			authors = []
@@ -144,6 +156,21 @@ def parseSearchResults(results):
 				quicklookurl="https://www.audible.com/pd/" + asin 
 			)
 			result.add_modifier(key="alt", subtitle=altSubtitleStr)
+
+		# Pagination
+
+		# Pages are a zero-based index
+		currentPage = int(os.getenv("currentPage")) + 1
+
+		if (currentPage * numResultsPerPage) < totalResultCount:
+			nextPage = str(int(os.getenv("currentPage"))+1)
+			wf.add_item(
+				title="Show more results...",
+				subtitle="Load the next " + str(numResultsPerPage) + " results",
+				arg="setpg:",
+				valid=True,
+				icon=ICON_SYNC
+			).setvar("currentPage", nextPage)
 	else:
 		addErrorItem("No results found.")
 		return None
@@ -151,11 +178,12 @@ def parseSearchResults(results):
 def loadSearchResults(query):
 	requestParams = {
 		"keywords": query,
-		"num_results": 10,
+		"num_results": numResultsPerPage,
 		"language": "en",
 		"products_sort_by": "Relevance",
-		"image_sizes": "256",
-		"response_groups": "media,product_desc,contributors,product_attrs"
+		"image_sizes": coverArtSize,
+		"response_groups": "media,product_desc,contributors,product_attrs",
+		"page": os.getenv("currentPage")
 	}
 
 	try:
