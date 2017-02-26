@@ -2,7 +2,12 @@
 
 import sys, json, ast, shutil, os
 from workflow import Workflow3, ICON_ERROR, ICON_INFO, web
-from workflow.notify import notify
+
+intervals = (
+	('hrs', 3600),
+	('mins', 60),
+	('secs', 1)
+)
 
 def addErrorItem(title, subtitle=""):
 	wf.add_item(
@@ -11,6 +16,26 @@ def addErrorItem(title, subtitle=""):
 		valid=True,
 		icon=ICON_ERROR
 	)
+
+def displayVersion(productVersion):
+	return {
+		"abridged": "Abridged",
+		"unabridged": "Unabridged",
+		"highlights": "Highlights",
+		"original_recording": "Original"
+	}[productVersion]
+
+def displayTime(seconds, granularity=2):
+	result = []
+
+	for name, count in intervals:
+		value = seconds // count
+		if value:
+			seconds -= value * count
+			if value == 1:
+				name = name.rstrip('s')
+			result.append("{} {}".format(value, name))
+	return ' and '.join(result[:granularity])
 
 def cacheCoverArt(imageUrl):
 	imgName = os.path.basename(imageUrl)
@@ -85,20 +110,22 @@ def parseSearchResults(results):
 			# Build subtitles for result items
 			defaultSubtitleComponents = []
 			if "version" in product:
-				defaultSubtitleComponents.append(product["version"])
+				defaultSubtitleComponents.append(displayVersion(product["version"]))
 			if "authors" in product:
 				defaultSubtitleComponents.append(product["authors"])
 			if "length" in product:
-				defaultSubtitleComponents.append(str(product["length"]))
+				lengthSecs = product["length"] * 60
+				defaultSubtitleComponents.append(displayTime(lengthSecs))
 			defaultSubtitleStr = " | ".join(defaultSubtitleComponents)
 
 			altSubtitleComponents = []
 			if "version" in product:
-				altSubtitleComponents.append(product["version"])
+				altSubtitleComponents.append(displayVersion(product["version"]))
 			if "narrators" in product:
 				altSubtitleComponents.append(product["narrators"])
 			if "length" in product:
-				altSubtitleComponents.append(str(product["length"]))
+				lengthSecs = product["length"] * 60
+				altSubtitleComponents.append(displayTime(lengthSecs))
 			altSubtitleStr = " | ".join(altSubtitleComponents)
 
 			# Display result
