@@ -36,6 +36,19 @@
 				<false/>
 			</dict>
 		</array>
+		<key>41C259EB-19E9-4953-97A7-5F86C110B4AD</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>E1460FD6-76C3-4405-A507-2DE9D123ACAD</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
 		<key>4FD14B0E-6426-492B-AEA1-176302B6CF32</key>
 		<array>
 			<dict>
@@ -116,6 +129,29 @@
 			<dict>
 				<key>destinationuid</key>
 				<string>15CFE991-099C-4FD9-BA65-B0204E54BE4F</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>A5F4A469-807D-4934-ADE8-6034D1BEB126</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
+		<key>A5F4A469-807D-4934-ADE8-6034D1BEB126</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>41C259EB-19E9-4953-97A7-5F86C110B4AD</string>
 				<key>modifiers</key>
 				<integer>0</integer>
 				<key>modifiersubtext</key>
@@ -242,6 +278,8 @@
 				<dict>
 					<key>activeQuery</key>
 					<string>{query}</string>
+					<key>currentPage</key>
+					<string>0</string>
 				</dict>
 			</dict>
 			<key>type</key>
@@ -321,7 +359,7 @@
 				<key>matchmode</key>
 				<integer>2</integer>
 				<key>matchstring</key>
-				<string>^(?!asin).*</string>
+				<string>^(?!asin)(?!setpg).*</string>
 			</dict>
 			<key>type</key>
 			<string>alfred.workflow.utility.filter</string>
@@ -339,6 +377,8 @@
 				<dict>
 					<key>activeQuery</key>
 					<string>{query}</string>
+					<key>currentPage</key>
+					<string>0</string>
 				</dict>
 			</dict>
 			<key>type</key>
@@ -358,6 +398,59 @@
 			<string>alfred.workflow.trigger.external</string>
 			<key>uid</key>
 			<string>3CD8BD08-A8F3-4239-9C09-91E23EE79D40</string>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>externaltriggerid</key>
+				<string>audisearch</string>
+				<key>passinputasargument</key>
+				<true/>
+				<key>passvariables</key>
+				<true/>
+				<key>workflowbundleid</key>
+				<string>self</string>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.output.callexternaltrigger</string>
+			<key>uid</key>
+			<string>E1460FD6-76C3-4405-A507-2DE9D123ACAD</string>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>inputstring</key>
+				<string>{query}</string>
+				<key>matchcasesensitive</key>
+				<false/>
+				<key>matchmode</key>
+				<integer>2</integer>
+				<key>matchstring</key>
+				<string>^setpg:</string>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.utility.filter</string>
+			<key>uid</key>
+			<string>A5F4A469-807D-4934-ADE8-6034D1BEB126</string>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>argument</key>
+				<string>{var:activeQuery}</string>
+				<key>variables</key>
+				<dict/>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.utility.argument</string>
+			<key>uid</key>
+			<string>41C259EB-19E9-4953-97A7-5F86C110B4AD</string>
 			<key>version</key>
 			<integer>1</integer>
 		</dict>
@@ -391,6 +484,13 @@ lxml - XML and HTML with Python | http://www.lxml.de/</string>
 			<integer>150</integer>
 			<key>ypos</key>
 			<integer>210</integer>
+		</dict>
+		<key>41C259EB-19E9-4953-97A7-5F86C110B4AD</key>
+		<dict>
+			<key>xpos</key>
+			<integer>580</integer>
+			<key>ypos</key>
+			<integer>260</integer>
 		</dict>
 		<key>48E729B7-D598-4D8D-8DDF-3DB49BA2CAE4</key>
 		<dict>
@@ -440,6 +540,20 @@ lxml - XML and HTML with Python | http://www.lxml.de/</string>
 			<integer>330</integer>
 			<key>ypos</key>
 			<integer>70</integer>
+		</dict>
+		<key>A5F4A469-807D-4934-ADE8-6034D1BEB126</key>
+		<dict>
+			<key>xpos</key>
+			<integer>520</integer>
+			<key>ypos</key>
+			<integer>260</integer>
+		</dict>
+		<key>E1460FD6-76C3-4405-A507-2DE9D123ACAD</key>
+		<dict>
+			<key>xpos</key>
+			<integer>640</integer>
+			<key>ypos</key>
+			<integer>230</integer>
 		</dict>
 	</dict>
 	<key>version</key>
