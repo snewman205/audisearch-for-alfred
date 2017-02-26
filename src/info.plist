@@ -460,8 +460,7 @@
 
 == Open source components ==
 
-Alfred-Workflow | http://www.deanishe.net/alfred-workflow/
-lxml - XML and HTML with Python | http://www.lxml.de/</string>
+Alfred-Workflow | http://www.deanishe.net/alfred-workflow/</string>
 	<key>uidata</key>
 	<dict>
 		<key>15CFE991-099C-4FD9-BA65-B0204E54BE4F</key>
@@ -557,7 +556,7 @@ lxml - XML and HTML with Python | http://www.lxml.de/</string>
 		</dict>
 	</dict>
 	<key>version</key>
-	<string>0.0.2</string>
+	<string>0.1.0</string>
 	<key>webaddress</key>
 	<string>https://www.audible.com/</string>
 </dict>
